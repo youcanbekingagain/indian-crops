@@ -57,7 +57,15 @@ def main():
 
     # Sidebar for selection
     st.sidebar.header("Filter Options")
-    years = ["2018", "2019", "2020"]  # Update with your available years
+    years = [
+        "2018",
+        "2019",
+        "2020",
+        "2021",
+        "2022",
+        "2023",
+        "2024",
+    ]  # Update with your available years
     seasons = ["Rabi", "Kharif"]  # Update with your available seasons
     schemes = ["WBCIS", "PMFBY"]  # Update with your available schemes
 
