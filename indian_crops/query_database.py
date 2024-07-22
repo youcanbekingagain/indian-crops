@@ -35,71 +35,30 @@ class PostgresDataHandler:
             print(f"An error occurred while connecting to the database: {e}")
             return None
 
-    def store_data_in_postgres(self, df, table_name="rainfall_data"):
-        try:
-            if self.engine:
-                df.to_sql(table_name, self.engine, if_exists="append", index=False)
-                print(f"Data successfully stored in {table_name} table.")
-            else:
-                print("Engine is not initialized. Cannot store data.")
-        except Exception as e:
-            print(f"An error occurred while storing data: {e}")
-
-    def query_data(
-        self,
-        latitude,
-        longitude,
-        query_date,
-        table_name="rainfall_data",
-        initial_tolerance=0.4,
-    ):
+    def query_crop_data(self, year, season, scheme):
         try:
             if self.engine:
                 query = text(
                     f"""
-                    SELECT lat, lon, time, rain, tmin, tmax
-                    FROM {table_name}
-                    WHERE time::date = :time
-                    AND lat BETWEEN :lat_min AND :lat_max
-                    AND lon BETWEEN :lon_min AND :lon_max
-                    AND rain != -999
-                    ORDER BY ABS(lat - :lat) + ABS(lon - :lon) ASC
-                    LIMIT 1
+                    SELECT "S. No", "State/UT", "Notified Districts", "Insurance Units", "Farmers",
+                           "Application Loanee", "Application Non-Loanee", "Thousand Hect. Area Insured", "Amount In Lac. Farmers Premium",
+                           "Amount In Lac. State Premium", "Amount In Lac. GOI Premium", "Amount In Lac. Gross Premium", "Sum Insured (In Lac.)",
+                           "Gender (%) Male", "Gender (%) Female", "Gender (%) Others", "Category (%) SC", "Category (%) ST",
+                           "Category (%) OBC", "Category (%) GEN", "Type of Farmer (%) Marginal", "Type of Farmer (%) Small",
+                           "Type of Farmer (%) Others", "Claim Paid (In Lac.) Prevented Sowing", "Claim Paid (In Lac.) Localized",
+                           "Claim Paid (In Lac.) Mid-term", "Claim Paid (In Lac.) Yield Based", "Claim Paid (In Lac.) Post Harvest",
+                           "Claim Paid (In Lac.) WBCIS", "Claim Paid (In Lac.) Total Claim Paid", "Claim Paid (In Lac.) Total Farmer Benefit(Actual)"
+                    FROM crop_states
+                    WHERE "Year" = :year AND "Season" = :season AND "Scheme" = :scheme
                     """
                 )
+
                 with self.engine.connect() as conn:
                     result = conn.execute(
-                        query,
-                        {
-                            "lat_min": latitude - initial_tolerance,
-                            "lat_max": latitude + initial_tolerance,
-                            "lon_min": longitude - initial_tolerance,
-                            "lon_max": longitude + initial_tolerance,
-                            "lat": latitude,
-                            "lon": longitude,
-                            "time": query_date,
-                        },
+                        query, {"year": year, "season": season, "scheme": scheme}
                     )
-
                     result_df = pd.DataFrame(result.fetchall(), columns=result.keys())
-                    # If data is found, return the dataframe
-                    if not result_df.empty:
-                        return result_df
-                    else:
-                        return pd.DataFrame(
-                            [
-                                (
-                                    latitude,
-                                    longitude,
-                                    query_date + " 00:00:00",
-                                    -999,
-                                    -999,
-                                    -999,
-                                )
-                            ],
-                            columns=["lat", "lon", "time", "rain", "tmin", "tmax"],
-                        )
-
+                    return result_df
             else:
                 print("Engine is not initialized. Cannot query data.")
                 return None
@@ -107,18 +66,20 @@ class PostgresDataHandler:
             print(f"An error occurred while querying data: {e}")
             return None
 
-    def mid_east_query_data(
-        self, country, query_year, query_month, table_name="middle_east"
-    ):
+    def query_district_data(self, year, season, scheme, state):
         try:
             if self.engine:
                 query = text(
                     f"""
-                    SELECT year, month, tmax, tmin, precipitation
-                    FROM {table_name}
-                    WHERE country = :country
-                    AND year = :year
-                    AND month ILIKE :month  -- Case insensitive comparison
+                    SELECT "Serial Number", "District Name", "Insurance Units", "Farmers",
+                           "Loanee Application", "Non-Loanee Application", "Area Insured", "Farmers Premium", "State Premium",
+                           "GOI Premium", "Gross Premium", "Sum Insured (In Lac.)", "Male Gender (%)", "Female Gender (%)",
+                           "Other Gender (%)", "Scheduled Caste (%)", "Scheduled Tribe (%)", "Other Backward Class (%)", "General (%)",
+                           "Marginal Farmer (%)", "Small Farmer (%)", "Other Farmer Type (%)", "Prevented Sowing Claim", "Localized Claim",
+                           "Mid-term Claim", "Yield Based Claim", "Post Harvest Claim", "WBCIS Claim", "Total Claim Paid",
+                           "Total Farmer Benefit (Actual)"
+                    FROM crop_districts
+                    WHERE "Year" = :year AND "Season" = :season AND "Scheme" = :scheme AND "State Name" = :state
                     """
                 )
 
@@ -126,103 +87,17 @@ class PostgresDataHandler:
                     result = conn.execute(
                         query,
                         {
-                            "country": country,
-                            "year": query_year,
-                            "month": query_month,  # No need for .upper() or .capitalize()
+                            "year": year,
+                            "season": season,
+                            "scheme": scheme,
+                            "state": state,
                         },
                     )
-
                     result_df = pd.DataFrame(result.fetchall(), columns=result.keys())
-                    # If data is found, return the dataframe
-                    if not result_df.empty:
-                        return result_df
-                    else:
-                        return pd.DataFrame(
-                            {
-                                "country": [country],
-                                "year": [query_year],
-                                "month": [
-                                    query_month
-                                ],  # Return the input query_month as is
-                                "tmax": [-999],
-                                "tmin": [-999],
-                                "precipitation": [-999],
-                            }
-                        )
-
+                    return result_df
             else:
                 print("Engine is not initialized. Cannot query data.")
                 return None
         except Exception as e:
             print(f"An error occurred while querying data: {e}")
             return None
-
-    def query_table(self, query_date, frequency):
-        try:
-            if not self.engine:
-                print("Engine is not initialized. Cannot query data.")
-                return None
-
-            if frequency == "daily":
-                table_name = "rainfall_data_partitioned_districts"
-                query = text(
-                    f"""
-                    SELECT state, district, rain, tmin, tmax
-                    FROM {table_name}
-                    WHERE time::date = :time
-                    """
-                )
-                params = {"time": query_date}
-            elif frequency == "monthly":
-                table_name = "rainfall_data_partitioned_districts_monthly"
-                query = text(
-                    f"""
-                    SELECT state, district, rain, tmin, tmax
-                    FROM {table_name}
-                    WHERE year = :year AND month = :month
-                    """
-                )
-                params = {
-                    "year": query_date.year,
-                    "month": query_date.strftime("%b").upper(),
-                }
-            elif frequency == "yearly":
-                table_name = "rainfall_data_partitioned_districts_yearly"
-                query = text(
-                    f"""
-                    SELECT state, district, rain, tmin, tmax
-                    FROM {table_name}
-                    WHERE year = :year
-                    """
-                )
-                params = {"year": query_date.year}
-            else:
-                raise ValueError(
-                    "Invalid frequency. Choose from 'daily', 'monthly', or 'yearly'."
-                )
-
-            # Print the query and params for debugging
-            print("SQL Query for Debugging:")
-            print(query)
-            print("Params for Debugging:")
-            print(params)
-
-            with self.engine.connect() as conn:
-                result = conn.execute(query, params)
-                result_df = pd.DataFrame(result.fetchall(), columns=result.keys())
-                return result_df
-
-        except Exception as e:
-            print(f"An error occurred while querying data: {e}")
-            return None
-
-
-# Usage
-username = "postgres"
-password = "Shadowreaper#1"
-host = "localhost"
-port = "3000"
-database_name = "postgres"
-role = "amanadmin"  # Add your role here
-
-data_handler = PostgresDataHandler(username, password, host, port, database_name, role)
