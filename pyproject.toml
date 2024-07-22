@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "indian-crops"
+version = "0.1.0"
+description = ""
+authors = ["Aman Singh <amansingh1rn19ec016@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+streamlit = "^1.36.0"
+plotly = "^5.22.0"
+pandas = "^2.2.2"
+sqlalchemy = "^2.0.31"
+streamlit-option-menu = "^0.3.13"
+geopandas = "^1.0.1"
+python-dotenv = "^1.0.1"
+psycopg2-binary = "^2.9.9"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
