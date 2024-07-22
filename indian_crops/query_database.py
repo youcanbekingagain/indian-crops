@@ -3,8 +3,6 @@ from sqlalchemy import create_engine, text, exc
 import pandas as pd
 from pathlib import Path
 
-load_dotenv()
-
 
 class PostgresDataHandler:
     def __init__(
