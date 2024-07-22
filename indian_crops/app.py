@@ -89,6 +89,7 @@ def main():
             if st.sidebar.button("View Districts"):
                 st.session_state.selected_state = state
                 st.session_state.state_view = True
+                st.experimental_rerun()
         else:
             st.write("No data available for the selected filters.")
     else:
@@ -103,6 +104,7 @@ def main():
 
             if st.sidebar.button("Back to States"):
                 st.session_state.state_view = False
+                st.experimental_rerun()
         else:
             st.write("No data available for the selected filters.")
 
